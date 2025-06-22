@@ -18,7 +18,7 @@ def clean_results(results):
     # Example cleaning logic to ensure results is a valid JSON string
     return results.strip()
 
-prompt2 = " Detect the 2d bounding boxes of objects in image. Return just box_2d and labels, no additional text."
+prompt2 = " Detect the 2d bounding boxes of objects in image. Return just box_2d and labels, no additional text. box_2d coordinates should be like so: [y1, x1, y2, x2], labels should always either be 'car' or 'empty"
 response = client.models.generate_content(
     model="gemini-2.5-flash",
     contents=[my_file, prompt2],
@@ -29,51 +29,32 @@ response = client.models.generate_content(
 )
 json_object = json.loads(response.text)
 
+
 i = 5
-height, width = img.shape[:2]
+h, w = img.shape[:2]
 parking_spaces = []
 
+h, w = img.shape[:2]
+
+
 for idx, item in enumerate(json_object):
+    y1, x1, y2, x2 = item["box_2d"]
+    y1 = int(y1 / 1000 * h)
+    x1 = int(x1 / 1000 * w)
+    y2 = int(y2 / 1000 * h)
+    x2 = int(x2 / 1000 * w)
+    if x1 > x2:
+        x1, x2 = x2, x1  # Swap x-coordinates if needed
+    if y1 > y2:
+        y1, y2 = y2, y1 
+    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    center_x = (x1 + x2) // 2
+    center_y = (y1 + y2) // 2
+    if item["label"] == "empty":
+        cv2.circle(img, (center_x, center_y), radius=5, color=(0, 0, 255), thickness=-1)
 
-   # By default, gemini model return output with y coordinates first.
 
-   # Scale normalized box coordinates (0–1000) to image dimensions
-   y1, x1, y2, x2 = item["box_2d"]
-   xcoord = (int(x1) + int(x2)) // 2
-   ycoord = (int(y1) + int(y2)) // 2
-   abs_y1 = int(y1/1000 * height)
-   abs_x1 = int(x1/1000 * width)
-   abs_y2 = int(y2/1000 * height)
-   abs_x2 = int(x2/1000 * width)
-   top_left = (abs_x1, abs_y1)
-   bottom_right = (abs_x2, abs_y2)
-   parking_spaces.append([abs_x1, abs_y1, abs_x2, abs_y2])
-   spot_coords = (xcoord, ycoord)
-   cv2.rectangle(img, top_left, bottom_right, (0, 255, 0), 2)
-#    cv2.circle(img, spot_coords, radius=10, color=(0, 255, 0), thickness=-1)
-
-new_img = "box-lot4.jpg"   
+new_img = "another1.jpg"   
 cv2.imwrite(new_img, img)
-
-# results = {"occupied": [], "empty": []}
-# img2 = cv2.imread(new_img)
-# for i, (x1, y1, x2, y2) in enumerate(parking_spaces):
-#     # Crop the space
-#     cropped = img2[y1:y2, x1:x2]
-#     temp_path = f"space_{i}.jpg"
-#     cv2.imwrite(temp_path, cropped)
-    
-#     # Analyze with Gemini
-#     my_file = client.files.upload(file=temp_path)
-#     response = client.models.generate_content(
-#         model="gemini-2.5-flash",
-#         contents=[my_file, "Is there a vehicle in this image? Answer 'yes' or 'no'."]
-#     )
-    
-#     # Classify space
-#     if response.text.lower() == "yes":
-#         results["occupied"].append(i + 1)
-#     else:
-#         results["empty"].append(i + 1)
 
 
